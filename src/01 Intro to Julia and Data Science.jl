@@ -21,6 +21,7 @@ eltype(x)
 # Operations between vectors
 
 y = 5
+print(x)
 z = x .+ y # elementwise operation
 
 # Defining a matrix
@@ -69,6 +70,7 @@ end
 
 using Statistics: mean, std
 import StatsBase as SB
+
 using Statistics
 # Note that if you don't have `StatsBase`, you can add it using `using Pkg; Pkg.add("StatsBase")`.
 # Right, let's now compute some simple statistics:
@@ -117,6 +119,8 @@ using RDatasets
 using DataFrames
 
 auto = dataset("ISLR", "Auto")
+auto_df = DataFrame(auto)
+# auto_df = dataset("ISLR", "Auto")
 auto = Matrix(auto_df)
 # To get dimensions you can use `size` and `nrow` and `ncol`
 
@@ -142,7 +146,7 @@ mpg = auto[:, :MPG]
 
 mean(mpg)
 std(mpg)
-@show StatsBase.summarystats(mpg)
+@show SB.summarystats(mpg)
 
 first_100_sampled_mpg = mpg[1:100]
 
