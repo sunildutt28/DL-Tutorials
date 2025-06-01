@@ -69,6 +69,8 @@ end
 # The packages `Statistics` (from the standard library) and [`StatsBase`](https://github.com/JuliaStats/StatsBase.jl) offer a number of useful function for stats:
 
 using Statistics: mean, std
+using Pkg; Pkg.add("StatsBase")
+using Gumbel
 import StatsBase as SB
 
 using Statistics
