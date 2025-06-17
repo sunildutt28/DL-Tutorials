@@ -116,13 +116,15 @@ using RDatasets
 
 using DataFrames
 
-auto = dataset("ISLR", "Auto")
+auto_df = dataset("ISLR", "Auto")
 auto = Matrix(auto_df)
 # To get dimensions you can use `size` and `nrow` and `ncol`
 
-@show size(auto)
-@show nrow(auto)
-@show ncol(auto)
+describe(auto_df)
+
+@show size(auto_df)
+@show nrow(auto_df)
+@show ncol(auto_df)
 
 @show first(auto_df, 3)
 
@@ -136,12 +138,13 @@ auto_df |> describe |> show
 
 # Accesssing columns can be done in different ways:
 
-mpg = auto.MPG
-mpg = auto[:, 1]
-mpg = auto[:, :MPG]
+mpg = auto_df.MPG
+mpg = auto_df[:, 1]
+mpg = auto_df[:, :MPG]
 
 mean(mpg)
 std(mpg)
+using StatsBase
 @show StatsBase.summarystats(mpg)
 
 first_100_sampled_mpg = mpg[1:100]
