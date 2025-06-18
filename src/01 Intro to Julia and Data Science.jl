@@ -12,9 +12,10 @@
 # Defining a vector
 
 x = [1, 3.1, 2, 5]
+append!(x, 7)
 @show x
 println(x)
-@show lastindex(x)
+@show l = lastindex(x)
 typeof(x)
 eltype(x)
 
@@ -35,12 +36,16 @@ X = reshape([1, 2, 3, 4], 2, 2)
 
 # But you have to be careful that it fills the matrix by column; so if you want to get the same result as before, you will need to permute the dimensions
 
-X_transposed = permutedims(reshape([1, 2, 3, 4], 2, 2))
+X_transposed = permutedims(X)
 println(X)
 println(X_transposed)
+
+
 # Function calls can be split with the `|>` operator so that the above can also be written
 
-x_ = reshape([1, 2, 3, 4], 2, 2) |> permutedims
+x_ = X |> permutedims |> sum
+
+x_ = sum(permutedims(X))
 
 # You don't have to do that of course but we will sometimes use it in these tutorials.
 #
@@ -51,8 +56,9 @@ x = 4
 +(4, 5)
 4 + 5
 @show sqrt(x)
-x^(1 / 2)
+x^0.5
 @show √4
+√9
 α² = 4
 
 # Element wise operations on a collection can be done with the dot syntax:
@@ -60,23 +66,22 @@ x^(1 / 2)
 [4, 6, 9] .+ 5
 
 function add(x, y)
-    z = x + y
-    g = z^2
-
+    return x + y
 end
 
 # The packages `Statistics` (from the standard library) and [`StatsBase`](https://github.com/JuliaStats/StatsBase.jl) offer a number of useful function for stats:
 
-using Statistics: mean, std
+import Statistics: mean, std
 import StatsBase as SB
 using Statistics
 # Note that if you don't have `StatsBase`, you can add it using `using Pkg; Pkg.add("StatsBase")`.
 # Right, let's now compute some simple statistics:
 using Random
 using Distributions
+#seed for reporducibility
 rng = Xoshiro(1234) #Xoshiro is state of the art Random Number Generator
-rand() #seed for reporducibility
-rand(rng, 10, 2, 4) # 1 point from a N(0, 1)
+rand() # 1 point from a N(0, 1)
+z = rand(rng, 10, 2, 4)
 x = rand(rng, Gumbel(0, 1), 1_000_000) # 1_000 points iid from a N(0, 1)
 # x = randn(rng, 1_000_000) # 1_000 points iid from a N(0, 1)
 μ = mean(x)
@@ -120,9 +125,13 @@ auto_df = dataset("ISLR", "Auto")
 auto = Matrix(auto_df)
 # To get dimensions you can use `size` and `nrow` and `ncol`
 
+<<<<<<< HEAD
 describe(auto_df)
 
 @show size(auto_df)
+=======
+@show size(auto)
+>>>>>>> 33de2874f12af108a8287224d82df003fe2b36b9
 @show nrow(auto_df)
 @show ncol(auto_df)
 
@@ -144,8 +153,12 @@ mpg = auto_df[:, :MPG]
 
 mean(mpg)
 std(mpg)
+<<<<<<< HEAD
 using StatsBase
 @show StatsBase.summarystats(mpg)
+=======
+@show SB.summarystats(mpg)
+>>>>>>> 33de2874f12af108a8287224d82df003fe2b36b9
 
 first_100_sampled_mpg = mpg[1:100]
 

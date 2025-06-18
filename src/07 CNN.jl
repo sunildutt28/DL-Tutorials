@@ -1,5 +1,6 @@
-# Classification of MNIST dataset using a convolutional neural network,
-# which is a variant of the original LeNet from 1998.
+# Classification of MNIST dataset using a convolutional neural network, the original LeNet5 from 1998. LeNet7 in 2005. And then since Alexnet2012 which was a bigger version to LeNets, CNNs have become the default choice for vision problems. Both architectures had made a significant leap in vision problems. This is similar to the Transformer architecture in 2017 which made a giant leap in NLP, and on which the ChatGPT was built. 
+
+# Then came EfficientNet, ResNet, InceptionNet which were all improvements, offering new and efficient ways to handle images. But the challenge is to do the job with as few parameters(resources) as possible, scaling up always has a limit.
 
 using Flux, JLD2, StatsPlots
 using CSV, DataFrames, Statistics
@@ -18,22 +19,22 @@ train_data = CSV.read(joinpath(folder, "mnist_train.csv"), DataFrame)  # i.e. sp
 test_data = CSV.read(joinpath(folder, "mnist_test.csv"), DataFrame)
 
 # train_data.features is a 28×28×60000 Array{Float32, 3} of the images.
-# Flux needs a 4D array, with the 3rd dim for channels -- here trivial, grayscale.
+# Flux needs a 4D array (WHCN), with the 3rd dim for channels -- here trivial, grayscale.
 # Combine the reshape needed with other pre-processing:
 
-function loader(data::DataFrame; batchsize::Int = 512)
-	x4dim = reshape(permutedims(Matrix{Float32}(select(data, Not(:label)))), 28, 28, 1, :)   # insert trivial channel dim
+function loader(data::DataFrame; batchsize::Int=512)
+    x4dim = reshape(permutedims(Matrix{Float32}(select(data, Not(:label)))), 28, 28, 1, :)   # insert trivial channel dim
 
-	x4dim = mapslices(x -> reverse(permutedims(x ./ 255), dims = 1), x4dim, dims = (1, 2))
+    x4dim = mapslices(x -> reverse(permutedims(x ./ 255), dims=1), x4dim, dims=(1, 2))
 
-	yhot = Flux.onehotbatch(Vector(data.label), 0:9)  # make a 10×60000 OneHotMatrix
-	Flux.DataLoader((x4dim, yhot); batchsize, shuffle = true)
+    yhot = Flux.onehotbatch(Vector(data.label), 0:9)  # make a 10×60000 OneHotMatrix
+    Flux.DataLoader((x4dim, yhot); batchsize, shuffle=true)
 end
 
 loader(train_data)  # returns a DataLoader, with first element a tuple like this:
 
 x1, y1 = first(loader(test_data)); # (28×28×1×64 Array{Float32, 3}, 10×64 OneHotMatrix(::Vector{UInt32}))
-train_data_loader = loader(train_data)
+train_data_loader = loader(train_data; batchsize=64)
 
 
 #===== MODEL =====#
@@ -42,14 +43,14 @@ train_data_loader = loader(train_data)
 # After each conv layer there's a pooling step. Finally, there are some fully connected (Dense) layers:
 
 lenet = Chain(
-	Conv((5, 5), 1 => 6, relu), #all filter sizes, number of layers are all also Hyperparameters
-	MaxPool((2, 2)),
-	Conv((5, 5), 6 => 16, relu),
-	MaxPool((2, 2)),
-	Flux.flatten,
-	Dense(256 => 120, relu), #256 here is decided by the original image size, and then the convolutional part, how many layers, what filter sizes, Poolings etc.
-	Dense(120 => 84, relu),
-	Dense(84 => 10),
+    Conv((5, 5), 1 => 6, relu), #all filter sizes, number of layers are all also Hyperparameters
+    MeanPool((2, 2)),
+    Conv((5, 5), 6 => 16, relu),
+    MeanPool((2, 2)),
+    Flux.flatten,
+    Dense(256 => 120, relu), #256 here is decided by the original image size, and then the convolutional part, how many layers, what filter sizes, Poolings etc.
+    Dense(120 => 84, relu),
+    Dense(84 => 10),
 )
 
 #===== ARRAY SIZES =====#
@@ -96,12 +97,12 @@ julia> lenet[1:5](x1) |> size  # after Flux.flatten
 using Statistics: mean  # standard library
 
 function loss_and_accuracy(model, data)
-	(x, y) = only(loader(data; batchsize = size(data, 1)))  # make one big batch
-	ŷ = model(x)
-	loss = Flux.logitcrossentropy(ŷ, y)  # did not include softmax in the model
-	#Flux=>Lux: logitcrossentropy => CrossEnrtropy(logits=true); crossentropy=>CrossEnrtropy(logits=false)
-	acc = round(100 * mean(Flux.onecold(ŷ) .== Flux.onecold(y)); digits = 2)
-	return loss, acc
+    (x, y) = only(loader(data; batchsize=size(data, 1)))  # make one big batch
+    ŷ = model(x)
+    loss = Flux.logitcrossentropy(ŷ, y)  # did not include softmax in the model
+    #Flux=>Lux: logitcrossentropy => CrossEnrtropy(logits=true); crossentropy=>CrossEnrtropy(logits=false)
+    acc = round(100 * mean(Flux.onecold(ŷ) .== Flux.onecold(y)); digits=2)
+    return loss, acc
 end
 
 @show loss_and_accuracy(lenet, test_data)  # accuracy about 10%, before training
@@ -112,10 +113,10 @@ end
 # Global variables are fine -- we won't access this from inside any fast loops.
 
 settings = (;
-	eta = 0.001,     # learning rate
-	lambda = 3e-4,  # for weight decay
-	batchsize = 512,
-	epochs = 20,
+    eta=0.001,     # learning rate
+    lambda=3e-4,  # for weight decay
+    batchsize=512,
+    epochs=10,
 )
 train_log = []
 
@@ -123,24 +124,24 @@ train_log = []
 opt_rule = AdamW(settings.eta, (0.9, 0.999), settings.lambda)
 opt_state = Flux.setup(opt_rule, lenet)
 for epoch in 1:settings.epochs
-	# @time will show a much longer time for the first epoch, due to compilation
-	@time for (x, y) in train_data_loader
-		grads = Flux.gradient(m -> Flux.logitcrossentropy(m(x), y), lenet)
-		Flux.update!(opt_state, lenet, grads[1])
-	end
+    # @time will show a much longer time for the first epoch, due to compilation
+    @time for (x, y) in train_data_loader
+        grads = Flux.gradient(m -> Flux.logitcrossentropy(m(x), y), lenet)
+        Flux.update!(opt_state, lenet, grads[1])
+    end
 
-	# Logging & saving, but not on every epoch
-	if epoch % 2 == 1
-		loss, acc = loss_and_accuracy(lenet, train_data)
-		test_loss, test_acc = loss_and_accuracy(lenet, test_data)
-		@info "logging:" epoch acc test_acc
-		nt = (; epoch, loss, acc, test_loss, test_acc)  # make a NamedTuple
-		push!(train_log, nt)
-	end
-	if epoch % 5 == 0
-		JLD2.jldsave(filename; lenet_state = Flux.state(lenet))
-		println("saved to ", filename, " after ", epoch, " epochs")
-	end
+    # Logging & saving, but not on every epoch
+    if epoch % 2 == 1
+        loss, acc = loss_and_accuracy(lenet, train_data)
+        test_loss, test_acc = loss_and_accuracy(lenet, test_data)
+        @info "logging:" epoch acc test_acc
+        nt = (; epoch, loss, acc, test_loss, test_acc)  # make a NamedTuple
+        push!(train_log, nt)
+    end
+    if epoch % 5 == 0
+        JLD2.jldsave(filename; lenet_state=Flux.state(lenet))
+        println("saved to ", filename, " after ", epoch, " epochs")
+    end
 end
 
 #HW TODO - Check why the MLP using Lux.jl was faster than CNN using Flux?
@@ -161,6 +162,7 @@ loaded_state = JLD2.load(filename, "lenet_state")
 # We can use lenet2 from just above:
 
 Flux.loadmodel!(lenet, loaded_state)
+
 
 #===== THE END =====#
 

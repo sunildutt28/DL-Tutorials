@@ -481,6 +481,9 @@ deps = ["ADTypes", "LinearAlgebra"]
 git-tree-sha1 = "210933c93f39f832d92f9efbbe69a49c453db36d"
 uuid = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 version = "0.7.1"
+git-tree-sha1 = "c8d85ecfcbaef899308706bebdd8b00107f3fb43"
+uuid = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
+version = "0.6.54"
 
     [deps.DifferentiationInterface.extensions]
     DifferentiationInterfaceChainRulesCoreExt = "ChainRulesCore"
@@ -1155,6 +1158,9 @@ deps = ["LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "Printf"]
 git-tree-sha1 = "4adee99b7262ad2a1a4bbbc59d993d24e55ea96f"
 uuid = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
 version = "7.4.0"
+git-tree-sha1 = "e4c3be53733db1051cc15ecf573b1042b3a712a1"
+uuid = "d3d80556-e9d4-5f37-9878-2ab0fcc64255"
+version = "7.3.0"
 
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
@@ -1407,6 +1413,9 @@ deps = ["DocStringExtensions", "IterativeSolvers", "LinearAlgebra", "LinearMaps"
 git-tree-sha1 = "d23c53a454f01c03780621477000f03bae487a9a"
 uuid = "6ee0df7b-362f-4a72-a706-9e79364fb692"
 version = "0.10.1"
+git-tree-sha1 = "7f517fd840ca433a8fae673edb31678ff55d969c"
+uuid = "6ee0df7b-362f-4a72-a706-9e79364fb692"
+version = "0.10.0"
 
 [[deps.MLJModelInterface]]
 deps = ["REPL", "Random", "ScientificTypesBase", "StatisticalTraits"]
@@ -1419,6 +1428,12 @@ deps = ["CategoricalArrays", "CategoricalDistributions", "Combinatorics", "Dates
 git-tree-sha1 = "09381923be5ed34416ed77badbc26e1adf295492"
 uuid = "d491faf4-2d78-11e9-2867-c94bc002c0b7"
 version = "0.17.9"
+
+[[deps.MLJMultivariateStatsInterface]]
+deps = ["CategoricalDistributions", "Distances", "LinearAlgebra", "MLJModelInterface", "MultivariateStats", "StatsBase"]
+git-tree-sha1 = "0d76e36bf83926235dcd3eaeafa7f47d3e7f32ea"
+uuid = "1b6a4a23-ba22-4f51-9698-8599985d3728"
+version = "0.5.3"
 
 [[deps.MLJTuning]]
 deps = ["ComputationalResources", "Distributed", "Distributions", "LatinHypercubeSampling", "MLJBase", "ProgressMeter", "Random", "RecipesBase", "StatisticalMeasuresBase"]
@@ -1510,6 +1525,9 @@ deps = ["ADTypes", "DifferentiationInterface", "Distributed", "FiniteDiff", "For
 git-tree-sha1 = "25a6638571a902ecfb1ae2a18fc1575f86b1d4df"
 uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
 version = "7.10.0"
+git-tree-sha1 = "b14c7be6046e7d48e9063a0053f95ee0fc954176"
+uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
+version = "7.9.1"
 
 [[deps.NNlib]]
 deps = ["Adapt", "Atomix", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "Random", "ScopedValues", "Statistics"]
@@ -1622,6 +1640,9 @@ deps = ["Compat", "EnumX", "FillArrays", "ForwardDiff", "LineSearches", "LinearA
 git-tree-sha1 = "61942645c38dd2b5b78e2082c9b51ab315315d10"
 uuid = "429524aa-4258-5aef-a3af-852621145aeb"
 version = "1.13.2"
+git-tree-sha1 = "31b3b1b8e83ef9f1d50d74f1dd5f19a37a304a1f"
+uuid = "429524aa-4258-5aef-a3af-852621145aeb"
+version = "1.12.0"
 
     [deps.Optim.extensions]
     OptimMOIExt = "MathOptInterface"
