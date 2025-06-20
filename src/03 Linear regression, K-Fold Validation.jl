@@ -140,7 +140,7 @@ end
 ### Effect of different features
 using DataFrames
 LinMod = Pipeline(
-    FeatureSelector(features=[:Nmae]),
+    FeatureSelector(features=[:Name]),
     LR()
 )
 names_cols = names(select(X, Not(:Name)))
@@ -169,3 +169,63 @@ best_models_mse_std = std(rep.best_history_entry.per_fold[1])^2
 # Question - How can we use linear regression for classification?
 
 
+using MLJ
+import Pkg; Pkg.add("MLJModels")
+using MLJModels  # Needed for Standardizer
+import DataFrames: DataFrame, select, Not
+import MLJLinearModels
+
+# Explicitly load required models
+RidgeRegressor = @load RidgeRegressor pkg=MLJLinearModels
+Standardizer = @load Standardizer pkg=MLJModels  # Corrected package source
+
+# Create polynomial features (without standardization to avoid nested scaling)
+function create_poly_features(df, max_degree=3)
+    poly_df = DataFrame()
+    for col in names(df)
+        vals = df[!, col]
+        for degree in 1:max_degree
+            poly_df[!, Symbol("$(col)_$degree")] = vals .^ degree
+        end
+    end
+    return poly_df
+end
+
+# Create polynomial features
+X_poly = create_poly_features(select(X, Not(:Name)), 3)
+
+# Set up pipeline with proper model loading
+pipe = Pipeline(
+    Standardizer(),  # Now correctly loaded
+    FeatureSelector(features=[:Horsepower_1]),
+    RidgeRegressor(lambda=0.1)
+)
+
+# Define tuning ranges
+all_features = names(X_poly)
+feature_cases = [Symbol.(all_features[1:i]) for i in 1:min(10, length(all_features))]
+
+# Create ranges
+feature_range = range(pipe, :(feature_selector.features), values=feature_cases)
+lambda_range = range(pipe, :(ridge_regressor.lambda), lower=1e-3, upper=10, scale=:log)
+
+# Configure tuned model
+tuned_model = TunedModel(
+    model=pipe,
+    tuning=Grid(resolution=3),
+    resampling=CV(nfolds=5),
+    range=[feature_range, lambda_range],
+    measure=rms
+)
+
+mach = machine(tuned_model, X_poly, y)
+fit!(mach, verbosity=2)
+
+# Evaluate results
+best_model = fitted_params(mach).best_model
+y_pred = predict(mach, rows=test)
+final_mse = mean((y_pred .- y[test]).^2)
+
+println("Best features: ", best_model.feature_selector.features)
+println("Best lambda: ", best_model.ridge_regressor.lambda)
+println("Final MSE: ", final_mse)
