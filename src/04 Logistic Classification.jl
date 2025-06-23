@@ -23,7 +23,7 @@ println(describe(smarket, :mean, :std, :eltype))
 y = smarket.Direction
 X = select(smarket, Not(:Direction))
 
-# We can compute all the pairwise correlations; we use `Matrix` so that the dataframe entries are considered as one matrix of numbers with the same type (otherwise `cor` won't work):
+# We can compute all the pairwise correlations; we use `Matrix` so that the dataframe entries are considered as one matrix of numbers with the same type (otherwise `correlations` won't work):
 
 using Plots
 # using Plots: text
@@ -143,3 +143,37 @@ mode.(ŷ)
 
 
 #HW TODO - Evaluate your LogisticClassifier using 10-folds
+
+using MLJ
+import RDatasets: dataset
+using DataFrames
+import MLJ: predict_mode
+
+# Load and prepare data
+smarket = dataset("ISLR", "Smarket")
+X = select(smarket, [:Lag1, :Lag2])
+y = coerce(smarket.Direction, OrderedFactor)
+
+# Load model
+@load LogisticClassifier pkg=MLJLinearModels
+
+# Define base model
+logreg = LogisticClassifier()
+
+# Wrap it in a TunedModel just for CV (no tuning actually happens)
+tm = TunedModel(
+    model=logreg,
+    resampling=CV(nfolds=10, shuffle=true, rng=123),
+    range = [],
+    measure=accuracy,
+    operation=predict_mode,
+    acceleration=CPUThreads(),  # optional: use multithreading
+    verbosity=1
+)
+
+# Train using all data (CV happens internally)
+mach = machine(tm, X, y)
+fit!(mach)
+
+# Best model and CV performance
+println("Mean CV accuracy: $(round(report(mach).best_result.measurement, digits=4))")
