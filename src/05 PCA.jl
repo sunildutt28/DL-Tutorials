@@ -91,3 +91,61 @@ end
 # So 4 PCA features are enough to recover most of the variance.
 
 ### HW TODO - Test the performance using LogisticClassifier and compare the performance on PCA features and the original set of features
+
+using MLJ
+import MLJ: transform, predict_mode
+using RDatasets
+using DataFrames
+using StatsBase  # for countmap
+
+# Load OJ dataset and extract price-related features
+data = dataset("ISLR", "OJ")
+
+feature_names = [
+    :PriceCH, :PriceMM, :DiscCH, :DiscMM, :SalePriceMM, :SalePriceCH,
+    :PriceDiff, :PctDiscMM, :PctDiscCH,
+]
+
+X = select(data, feature_names)
+y = data.Purchase  # Categorical target
+
+# Coerce types for MLJ
+X = coerce(X, autotype(X, :discrete_to_continuous))
+y = coerce(y, Multiclass)
+
+# Train-test split
+train, test = partition(eachindex(y), 0.7, shuffle=true, rng=1515)
+
+# ========== 1. Train LogisticClassifier on original features ==========
+LogisticClassifier = @load LogisticClassifier pkg = MLJLinearModels
+clf = LogisticClassifier()
+clf_mach = machine(clf, X, y)
+fit!(clf_mach, rows=train)
+yhat_orig = predict_mode(clf_mach, rows=test)
+acc_orig = accuracy(yhat_orig, y[test])
+
+# ========== 2. Train LogisticClassifier on PCA-transformed features ==========
+@load Standardizer
+@load PCA pkg=MultivariateStats
+
+# Create PCA pipeline (standardize + PCA)
+SPCA = Pipeline(
+    Standardizer(),
+    PCA(variance_ratio=1.0),
+)
+
+# Fit PCA pipeline
+pca_mach = machine(SPCA, X)
+fit!(pca_mach, rows=train)
+X_pca = transform(pca_mach, X)
+
+# Fit logistic classifier on PCA features
+clf_pca_mach = machine(clf, X_pca, y)
+fit!(clf_pca_mach, rows=train)
+yhat_pca = predict_mode(clf_pca_mach, rows=test)
+acc_pca = accuracy(yhat_pca, y[test])
+
+# ========== 3. Compare results ==========
+println("Accuracy on original features: $(round(acc_orig, digits=4))")
+println("Accuracy on PCA features:      $(round(acc_pca, digits=4))")
+
