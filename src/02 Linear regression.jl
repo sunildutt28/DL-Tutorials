@@ -338,3 +338,5 @@ mach = machine(model, X, y)
 fit!(mach)
 ŷ = MLJ.predict(mach, X)
 round(rsquared(ŷ, y), sigdigits=4)
+
+# Solution: if we drop Indus or Age we have highest r_squared_values 74.06
