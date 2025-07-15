@@ -413,7 +413,7 @@ function benchmark_training(model, model_type)
     if model_type == :flux
         ps = Flux.params(model)
         loss() = crossentropy(model(x), y)
-        @belapsed Flux.train!(loss, $ps, [($x, $y)], $opt
+        @belapsed Flux.train!(loss, $ps, [($x, $y)], $opt)
     else
         rng = Random.default_rng()
         ps, st = Lux.setup(rng, model)
