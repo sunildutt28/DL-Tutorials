@@ -146,6 +146,317 @@ end
 
 #HW TODO - Check why the MLP using Lux.jl was faster than CNN using Flux?
 
+# Compare MLP in Flux.jl and LUX = which library is faster?
+
+import Pkg; Pkg.add("BenchmarkTools")
+import Pkg; Pkg.add("CUDA")
+using Flux, Lux, BenchmarkTools, Random, CUDA
+using Statistics: mean
+
+using Flux: Chain as FluxChain, Dense as FluxDense
+using Lux: Chain as LuxChain, Dense as LuxDense
+
+
+# --- Define MLP in Flux.jl ---
+function build_flux_mlp()
+    return FluxChain(
+        FluxDense(784 => 256, relu),
+        FluxDense(256 => 128, relu),
+        FluxDense(128 => 10),
+    )
+end
+
+# --- Define MLP in Lux.jl ---
+function build_lux_mlp()
+    return LuxChain(
+        LuxDense(784 => 256, relu),
+        LuxDense(256 => 128, relu),
+        LuxDense(128 => 10),
+    )
+end
+
+# --- Benchmarking Function ---
+function benchmark_mlp()
+    # Generate random input (batch size = 100)
+    x = rand(Float32, 784, 100)  # CPU-only
+
+    # --- Benchmark Flux.jl ---
+    flux_model = build_flux_mlp()
+    println("\n🔥 Benchmarking Flux.jl MLP:")
+    flux_time = @belapsed $flux_model($x) samples=100 evals=3
+
+    # --- Benchmark Lux.jl ---
+    lux_model = build_lux_mlp()
+    rng = Random.default_rng()
+    ps, st = Lux.setup(rng, lux_model)  # No GPU transfer
+    println("\n🚀 Benchmarking Lux.jl MLP:")
+    lux_time = @belapsed $lux_model($x, $ps, $st) samples=100 evals=3
+
+    # --- Results ---
+    println("\n📊 Results (CPU):")
+    println("- Flux.jl MLP time: $(round(flux_time * 1000, digits=3)) ms")
+    println("- Lux.jl MLP time: $(round(lux_time * 1000, digits=3)) ms")
+
+    if lux_time < flux_time
+        speedup = round((flux_time / lux_time), digits=2)
+        println("\n✅ Lux.jl is **$(speedup)x faster** than Flux.jl!")
+    else
+        speedup = round((lux_time / flux_time), digits=2)
+        println("\n✅ Flux.jl is **$(speedup)x faster** than Lux.jl!")
+    end
+end
+
+# Run benchmark
+benchmark_mlp()
+
+
+# Compare CNN and MLP in one Library - which architecture is better?
+using Flux
+using MLDatasets
+using Statistics
+using BenchmarkTools
+using ProgressMeter
+using Flux, MLDatasets, Statistics, BenchmarkTools, ProgressMeter, Optimisers
+
+
+using Flux, MLDatasets, Statistics, BenchmarkTools, ProgressMeter, Optimisers, Dates
+
+# Configuration
+const BATCH_SIZE = 128
+const EPOCHS = 5
+
+# Memory-efficient data loading
+function get_data_loader(data_x, data_y; batch_size=BATCH_SIZE)
+    x = reshape(data_x, 28, 28, 1, :) ./ 255f0
+    y = Flux.onehotbatch(data_y, 0:9)
+    return Flux.DataLoader((x, y); batchsize=batch_size, shuffle=true)
+end
+
+# Load data
+train_x, train_y = MLDatasets.MNIST.traindata(Float32)
+test_x, test_y = MLDatasets.MNIST.testdata(Float32)
+train_loader = get_data_loader(train_x, train_y)
+test_loader = get_data_loader(test_x, test_y; batch_size=1000)
+
+# Parameter-balanced models (both ~105K params)
+function create_balanced_mlp()
+    Chain(
+        Flux.flatten,
+        Dense(28*28 => 128, relu),  # 784*128 + 128 = 100,480
+        Dense(128 => 64, relu),     # 128*64 + 64 = 8,256
+        Dense(64 => 10),             # 64*10 + 10 = 650
+        softmax                      # Total: 100,480 + 8,256 + 650 = 109,386 (close enough)
+    )
+end
+
+function create_cnn()
+    Chain(
+        Conv((3, 3), 1 => 16, pad=(1,1), relu),  # 3*3*1*16 + 16 = 160
+        MaxPool((2, 2)),
+        Conv((3, 3), 16 => 32, pad=(1,1), relu),  # 3*3*16*32 + 32 = 4,640
+        MaxPool((2, 2)),
+        Flux.flatten,
+        Dense(7*7*32 => 64, relu),                # 1568*64 + 64 = 100,416
+        Dense(64 => 10),                           # 64*10 + 10 = 650
+        softmax                                    # Total: 160 + 4,640 + 100,416 + 650 = 105,866
+    )
+end
+
+# Verify parameter counts
+mlp = create_balanced_mlp()
+cnn = create_cnn()
+println("Parameter Count Verification:")
+println("- MLP: ", sum(length, Flux.params(mlp)), " params")
+println("- CNN: ", sum(length, Flux.params(cnn)), " params\n")
+
+# Enhanced training function with timing
+function train_model(model, name, train_loader, test_loader; epochs=EPOCHS)
+    opt = Optimisers.Adam(0.001)
+    state = Optimisers.setup(opt, model)
+    
+    # Track timing
+    epoch_times = Float64[]
+    batch_times = Float64[]
+    test_accuracies = Float64[]
+    
+    @showprogress for epoch in 1:epochs
+        epoch_start = time()
+        batch_time = 0.0
+        
+        # Training
+        for (x, y) in train_loader
+            batch_start = time()
+            grads = gradient(model) do m
+                Flux.crossentropy(m(x), y)
+            end
+            state, model = Optimisers.update(state, model, grads[1])
+            batch_time += time() - batch_start
+        end
+        
+        # Evaluation
+        test_acc = 0.0
+        for (x, y) in test_loader
+            test_acc += mean(Flux.onecold(model(x)) .== Flux.onecold(y)) * size(x)[end]
+        end
+        test_acc /= length(test_y)
+        push!(test_accuracies, test_acc)
+        
+        # Record times
+        push!(epoch_times, time() - epoch_start)
+        push!(batch_times, batch_time / length(train_loader))
+        
+        println("$name Epoch $epoch: ",
+                "Test acc = $(round(test_acc*100, digits=2))% | ",
+                "Epoch time = $(round(epoch_times[end], digits=2))s | ",
+                "Avg batch time = $(round(batch_times[end]*1000, digits=2))ms")
+    end
+    
+    # Benchmark inference
+    x_test = first(first(test_loader))
+    inf_time = @belapsed $model($x_test) samples=100 evals=3
+    
+    return (
+        model=model,
+        avg_epoch_time=mean(epoch_times),
+        avg_batch_time=mean(batch_times),
+        inf_time=inf_time,
+        final_acc=test_accuracies[end]
+    )
+end
+
+# Train and compare with timing
+println("\n=== Training Balanced MLP ===")
+mlp_results = train_model(mlp, "MLP", train_loader, test_loader)
+
+println("\n=== Training CNN ===")
+cnn_results = train_model(cnn, "CNN", train_loader, test_loader)
+
+# Results comparison
+println("\n" * "="^40)
+println("FINAL COMPARISON (Parameter-Balanced)")
+println("="^40)
+println("Model         | MLP       | CNN")
+println("--------------|-----------|-----------")
+println("Params        | $(lpad(sum(length, Flux.params(mlp)), 8)) | $(lpad(sum(length, Flux.params(cnn)), 8))")
+println("Accuracy      | $(lpad(round(mlp_results.final_acc*100, digits=2), 6))%  | $(lpad(round(cnn_results.final_acc*100, digits=2), 6))%")
+println("Epoch Time    | $(lpad(round(mlp_results.avg_epoch_time, digits=2), 6))s  | $(lpad(round(cnn_results.avg_epoch_time, digits=2), 6))s")
+println("Batch Time    | $(lpad(round(mlp_results.avg_batch_time*1000, digits=2), 6))ms | $(lpad(round(cnn_results.avg_batch_time*1000, digits=2), 6))ms")
+println("Inference Time| $(lpad(round(mlp_results.inf_time*1000, digits=2), 6))ms | $(lpad(round(cnn_results.inf_time*1000, digits=2), 6))ms")
+
+# Relative improvements
+rel_acc = (cnn_results.final_acc - mlp_results.final_acc)/mlp_results.final_acc * 100
+rel_speed = (mlp_results.inf_time - cnn_results.inf_time)/cnn_results.inf_time * 100
+println("\nKey Findings:")
+println("- CNN achieves $(round(rel_acc, digits=2))% higher accuracy")
+println("- MLP is $(round(abs(rel_speed), digits=2))% faster at inference")
+
+#===== SAVING TRAINED MODEL =====#
+#part1
+using Flux, Lux, BenchmarkTools, Random, Statistics, ProgressMeter, Zygote
+
+# Configuration
+const BATCH_SIZE = 128
+const INPUT_SIZE = 784
+const HIDDEN_LAYERS = [256, 128]  # Adjusted to match parameter counts
+
+# Generate synthetic data
+function synthetic_data(batch_size)
+    x = rand(Float32, INPUT_SIZE, batch_size)
+    y = rand(0:9, batch_size)
+    return (x, Flux.onehotbatch(y, 0:9))
+end
+
+# Flux.jl Model
+function build_flux_mlp()
+    Flux.Chain(
+        Flux.Dense(INPUT_SIZE => HIDDEN_LAYERS[1], relu),
+        Flux.Dense(HIDDEN_LAYERS[1] => HIDDEN_LAYERS[2], relu),
+        Flux.Dense(HIDDEN_LAYERS[2] => 10),
+        softmax
+    )
+end
+
+# Lux.jl Model
+function build_lux_mlp()
+    Lux.Chain(
+        Lux.Dense(INPUT_SIZE => HIDDEN_LAYERS[1], relu),
+        Lux.Dense(HIDDEN_LAYERS[1] => HIDDEN_LAYERS[2], relu),
+        Lux.Dense(HIDDEN_LAYERS[2] => 10),
+        softmax
+    )
+end
+
+# Backpropagation Benchmark
+function benchmark_backprop(model, model_type; n_batches=100)
+    times = Float64[]
+    for _ in 1:n_batches
+        x, y = synthetic_data(BATCH_SIZE)
+        if model_type == :flux
+            grads = @elapsed gradient(params(model)) do
+                sum(model(x) .* y)  # Dummy loss
+            end
+        else
+            rng = Random.default_rng()
+            ps, st = Lux.setup(rng, model)
+            grads = @elapsed gradient(p -> sum(model(x, p, st)[1], ps))
+        end
+        push!(times, grads)
+    end
+    mean(times[10:end])  # Skip warmup
+end
+
+# Training Step Benchmark
+function benchmark_training(model, model_type)
+    opt = Adam(0.001)
+    x, y = synthetic_data(BATCH_SIZE)
+    
+    if model_type == :flux
+        ps = Flux.params(model)
+        loss() = crossentropy(model(x), y)
+        @belapsed Flux.train!(loss, $ps, [($x, $y)], $opt
+    else
+        rng = Random.default_rng()
+        ps, st = Lux.setup(rng, model)
+        loss(p) = crossentropy(model(x, p, st)[1], nothing)
+        @belapsed Optimisers.update!(opt, $ps, gradient($loss, $ps)[1])
+    end
+end
+
+# Main Comparison
+function compare_mlp_performance()
+    # Build models
+    flux_mlp = build_flux_mlp()
+    lux_mlp = build_lux_mlp()
+
+    # Verify parameter counts
+    flux_params = sum(length, Flux.params(flux_mlp))
+    lux_params = sum(length, Lux.initialparameters(Random.default_rng(), lux_mlp)[1])
+    
+    println("Parameter Counts:")
+    println("- Flux: ", flux_params)
+    println("- Lux: ", lux_params)
+
+    # Benchmark backpropagation
+    println("\nBackpropagation Performance:")
+    flux_bp = benchmark_backprop(flux_mlp, :flux)
+    lux_bp = benchmark_backprop(lux_mlp, :lux)
+    println("- Flux: ", round(flux_bp*1000, digits=2), "ms/batch")
+    println("- Lux: ", round(lux_bp*1000, digits=2), "ms/batch")
+    println("Speedup: ", round(flux_bp/lux_bp, digits=2), "x")
+
+    # Benchmark training step
+    println("\nTraining Step Performance:")
+    flux_train = benchmark_training(flux_mlp, :flux)
+    lux_train = benchmark_training(lux_mlp, :lux)
+    println("- Flux: ", round(flux_train*1000, digits=2), "ms/step")
+    println("- Lux: ", round(lux_train*1000, digits=2), "ms/step")
+    println("Speedup: ", round(flux_train/lux_train, digits=2), "x")
+end
+
+# Run comparison
+compare_mlp_performance()
+#-----------------
+
 @show train_log
 
 # We can re-run the quick sanity-check of predictions:
