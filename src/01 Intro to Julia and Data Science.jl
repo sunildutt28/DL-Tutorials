@@ -125,13 +125,7 @@ auto_df = dataset("ISLR", "Auto")
 auto = Matrix(auto_df)
 # To get dimensions you can use `size` and `nrow` and `ncol`
 
-<<<<<<< HEAD
-describe(auto_df)
-
-@show size(auto_df)
-=======
 @show size(auto)
->>>>>>> 33de2874f12af108a8287224d82df003fe2b36b9
 @show nrow(auto_df)
 @show ncol(auto_df)
 
@@ -153,12 +147,7 @@ mpg = auto_df[:, :MPG]
 
 mean(mpg)
 std(mpg)
-<<<<<<< HEAD
-using StatsBase
-@show StatsBase.summarystats(mpg)
-=======
 @show SB.summarystats(mpg)
->>>>>>> 33de2874f12af108a8287224d82df003fe2b36b9
 
 first_100_sampled_mpg = mpg[1:100]
 
