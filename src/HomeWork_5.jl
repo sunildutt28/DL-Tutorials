@@ -54,7 +54,7 @@ optim = Optimisers.setup(Optimisers.Adam(0.001), model)
 # 4. Define loss and accuracy
 loss(x, y, model) = Flux.crossentropy(model(x), y)
 accuracy(x, y, model) = mean(onecold(model(x)) .== onecold(y))
-
+epochs = 10
 # Open a log file
 log_file = open(joinpath(results_dir, "training_log.txt"), "w")
 println(log_file, "Training Log - CIFAR10 with LeNet-5")
